@@ -177,17 +177,19 @@ async function sendNotificationEmail(
   `;
 
   try {
-    await resend.emails.send({
-      from: 'Choquer Contact <leads@choquer.com>',
+    console.log(`[Email] Attempting to send ${trigger} notification to ${notificationEmail}`);
+    
+    const result = await resend.emails.send({
+      from: 'Choquer Contact <leads@choquer.agency>',
       to: notificationEmail,
       subject,
       html,
     });
 
-    console.log(`Email sent successfully for ${trigger} lead: ${formData.email || 'no email'}`);
+    console.log(`[Email] Sent successfully for ${trigger} lead: ${formData.email || 'no email'}`, result);
     return true;
   } catch (error) {
-    console.error('Failed to send email:', error);
+    console.error('[Email] Failed to send:', error);
     return false;
   }
 }
@@ -198,7 +200,10 @@ app.post('/api/lead', async (req, res) => {
     const payload: LeadPayload = req.body;
     const { sessionId, formData, currentStep, trigger } = payload;
 
+    console.log(`[API] Lead received - Session: ${sessionId?.slice(0, 8)}..., Step: ${currentStep}, Trigger: ${trigger || 'none'}`);
+
     if (!sessionId) {
+      console.log('[API] Error: No session ID');
       return res.status(400).json({ error: 'Session ID required' });
     }
 
