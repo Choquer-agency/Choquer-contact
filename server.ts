@@ -180,7 +180,7 @@ async function sendNotificationEmail(
     console.log(`[Email] Attempting to send ${trigger} notification to ${notificationEmail}`);
     
     const result = await resend.emails.send({
-      from: 'Choquer Contact <leads@choquer.agency>',
+      from: 'Choquer Contact <contactform@choquer.agency>',
       to: notificationEmail,
       subject,
       html,

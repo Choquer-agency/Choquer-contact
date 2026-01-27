@@ -139,15 +139,13 @@ export function useLeadTracker({
     const handleBeforeUnload = () => {
       if (sessionRef.current && !isSubmittedRef.current) {
         // Use sendBeacon for reliable delivery on page close
-        navigator.sendBeacon(
-          '/api/lead',
-          JSON.stringify({
-            sessionId: sessionRef.current.sessionId,
-            formData: sessionRef.current.formData,
-            currentStep: sessionRef.current.currentStep,
-            // Don't trigger email on page close - let the inactivity timer handle it
-          })
-        );
+        const blob = new Blob([JSON.stringify({
+          sessionId: sessionRef.current.sessionId,
+          formData: sessionRef.current.formData,
+          currentStep: sessionRef.current.currentStep,
+        })], { type: 'application/json' });
+        
+        navigator.sendBeacon('/api/lead', blob);
       }
     };
 
