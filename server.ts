@@ -248,7 +248,7 @@ app.post('/api/lead', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Handle SPA routing - serve index.html for all other routes
-app.get('*', (_req, res) => {
+app.get('/{*path}', (_req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
