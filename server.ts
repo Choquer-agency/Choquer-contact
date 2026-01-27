@@ -336,6 +336,67 @@ app.get('/{*path}', (_req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
+// Function to process pending email leads (marked by pg_cron in Neon)
+async function processPendingEmailLeads() {
+  try {
+    const cleanDbUrl = (process.env.DATABASE_URL || '').trim().replace(/^[^p]+/, '');
+    if (!cleanDbUrl) {
+      console.log('[EmailProcessor] No DATABASE_URL configured');
+      return;
+    }
+
+    const sql = neon(cleanDbUrl);
+
+    // Find leads marked as 'pending_email' by pg_cron
+    const pendingLeads = await sql`
+      SELECT id, session_id, current_step, form_data, status
+      FROM leads
+      WHERE status = 'pending_email' AND email_sent = false
+      LIMIT 10
+    `;
+
+    if (pendingLeads.length === 0) {
+      return; // No pending leads
+    }
+
+    console.log(`[EmailProcessor] Found ${pendingLeads.length} pending leads to process`);
+
+    for (const lead of pendingLeads) {
+      const formData = lead.form_data as FormData;
+      const currentStep = lead.current_step as number;
+
+      console.log(`[EmailProcessor] Processing lead ${lead.session_id.slice(0, 8)}...`);
+
+      const emailSent = await sendNotificationEmail(formData, currentStep, 'abandoned');
+
+      // Update lead status regardless of email success (to prevent infinite retries)
+      await sql`
+        UPDATE leads 
+        SET 
+          email_sent = ${emailSent}, 
+          status = 'abandoned',
+          updated_at = NOW()
+        WHERE id = ${lead.id}
+      `;
+
+      if (emailSent) {
+        console.log(`[EmailProcessor] Email sent for lead ${lead.session_id.slice(0, 8)}`);
+      } else {
+        console.log(`[EmailProcessor] Email failed for lead ${lead.session_id.slice(0, 8)}`);
+      }
+    }
+  } catch (error) {
+    console.error('[EmailProcessor] Error:', error);
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Process any pending leads on startup
+  processPendingEmailLeads();
+  
+  // Check for pending leads every 60 seconds
+  setInterval(processPendingEmailLeads, 60 * 1000);
+  console.log('[EmailProcessor] Started - checking every 60 seconds');
 });
