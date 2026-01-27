@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Choquer Agency Intake</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* PP Neue Montreal Font Family */
+      @font-face {
+        font-family: 'PP Neue Montreal';
+        src: url('./ppneuemontreal-book.otf') format('opentype');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'PP Neue Montreal';
+        src: url('./ppneuemontreal-medium.otf') format('opentype');
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'PP Neue Montreal';
+        src: url('./ppneuemontreal-bold.otf') format('opentype');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'PP Neue Montreal';
+        src: url('./ppneuemontreal-italic.otf') format('opentype');
+        font-weight: 400;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'PP Neue Montreal';
+        src: url('./ppneuemontreal-semibolditalic.otf') format('opentype');
+        font-weight: 600;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'PP Neue Montreal';
+        src: url('./ppneuemontreal-thin.otf') format('opentype');
+        font-weight: 100;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      /* PP Neue Bit Font Family */
+      @font-face {
+        font-family: 'PP Neue Bit';
+        src: url('./PPNeueBit-Bold.otf') format('opentype');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      /* Custom scrollbar for the right panel */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #E5E7EB;
+        border-radius: 20px;
+      }
+      body {
+        font-family: 'PP Neue Montreal', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      
+      /* Safe area support for mobile devices with notches */
+      .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+      }
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .safe-area-left {
+        padding-left: env(safe-area-inset-left);
+      }
+      .safe-area-right {
+        padding-right: env(safe-area-inset-right);
+      }
+
+      /* Animation for step transitions */
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in-up {
+        animation: fadeInUp 0.4s ease-out forwards;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                dark: '#1C1C1C',
+                orange: '#F97316',
+                light: '#FAFAFA',
+                gray: '#A1A1AA'
+              }
+            },
+            fontFamily: {
+              sans: ['"PP Neue Montreal"', 'sans-serif'],
+              pixel: ['"PP Neue Bit"', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
