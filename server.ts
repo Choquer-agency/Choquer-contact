@@ -11,6 +11,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Debug: Log DATABASE_URL on startup (first 50 chars only for security)
+const dbUrl = process.env.DATABASE_URL || '';
+console.log('[Startup] DATABASE_URL length:', dbUrl.length);
+console.log('[Startup] DATABASE_URL first 50 chars:', JSON.stringify(dbUrl.slice(0, 50)));
+console.log('[Startup] DATABASE_URL char codes:', Array.from(dbUrl.slice(0, 10)).map(c => c.charCodeAt(0)));
+
 // Middleware
 app.use(express.json());
 
@@ -207,8 +213,9 @@ app.post('/api/lead', async (req, res) => {
       return res.status(400).json({ error: 'Session ID required' });
     }
 
-    // Connect to Neon
-    const sql = neon(process.env.DATABASE_URL!);
+    // Connect to Neon - clean up any hidden characters from env var
+    const cleanDbUrl = (process.env.DATABASE_URL || '').trim().replace(/^[^p]+/, '');
+    const sql = neon(cleanDbUrl);
 
     // Determine status
     const status = trigger || 'in_progress';
