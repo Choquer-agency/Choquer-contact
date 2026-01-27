@@ -10,7 +10,8 @@
     "build": "tsc && vite build",
     "start": "node --import tsx server.ts",
     "preview": "vite preview --port 1327",
-    "db:setup": "tsx scripts/setup-db.ts"
+    "db:setup": "tsx scripts/setup-db.ts",
+    "cron:check-leads": "tsx cron/check-leads.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

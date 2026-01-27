@@ -256,6 +256,78 @@ app.post('/api/lead', async (req, res) => {
   }
 });
 
+// Cron endpoint to check for abandoned leads
+// This runs every 5 minutes via Railway cron job
+app.post('/api/cron/check-leads', async (req, res) => {
+  // Verify cron secret to prevent unauthorized access
+  const cronSecret = process.env.CRON_SECRET;
+  const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
+  
+  if (cronSecret && providedSecret !== cronSecret) {
+    console.log('[Cron] Unauthorized request - invalid secret');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('[Cron] Starting abandoned lead check...');
+
+  try {
+    // Connect to Neon
+    const cleanDbUrl = (process.env.DATABASE_URL || '').trim().replace(/^[^p]+/, '');
+    const sql = neon(cleanDbUrl);
+
+    // Find leads that:
+    // - Haven't been updated in the last 10 minutes (user is gone)
+    // - Haven't had an email sent yet
+    // - Have at least some meaningful data (name or email)
+    // - Are not already marked as 'completed'
+    const abandonedLeads = await sql`
+      SELECT id, session_id, current_step, form_data, status
+      FROM leads
+      WHERE 
+        email_sent = false
+        AND status != 'completed'
+        AND updated_at < NOW() - INTERVAL '10 minutes'
+        AND (
+          form_data->>'fullName' IS NOT NULL AND form_data->>'fullName' != ''
+          OR form_data->>'email' IS NOT NULL AND form_data->>'email' != ''
+        )
+    `;
+
+    console.log(`[Cron] Found ${abandonedLeads.length} abandoned leads to process`);
+
+    let emailsSent = 0;
+    for (const lead of abandonedLeads) {
+      const formData = lead.form_data as FormData;
+      const currentStep = lead.current_step as number;
+
+      console.log(`[Cron] Processing lead ${lead.session_id.slice(0, 8)}... - Step ${currentStep}`);
+
+      const emailSent = await sendNotificationEmail(formData, currentStep, 'abandoned');
+
+      if (emailSent) {
+        // Mark email as sent and update status
+        await sql`
+          UPDATE leads 
+          SET email_sent = true, status = 'abandoned'
+          WHERE id = ${lead.id}
+        `;
+        emailsSent++;
+      }
+    }
+
+    console.log(`[Cron] Completed - sent ${emailsSent} emails`);
+    res.json({ 
+      success: true, 
+      processed: abandonedLeads.length, 
+      emailsSent 
+    });
+
+  } catch (error) {
+    console.error('[Cron] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Serve static files from the dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
