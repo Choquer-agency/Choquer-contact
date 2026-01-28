@@ -259,11 +259,15 @@ app.post('/api/lead', async (req, res) => {
   }
 });
 
-// TEST endpoint - sends a test email with hardcoded values
+// TEST endpoint - sends a test email
 app.get('/api/test-email', async (_req, res) => {
   console.log('[Test] Sending test email...');
   
-  const resend = new Resend('re_hvomVkyY_6wSX4uG9sbwLm8FEMhKXkcAT');
+  const resendApiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^[^r]+/, '');
+  if (!resendApiKey) {
+    return res.status(500).json({ success: false, error: 'RESEND_API_KEY not configured' });
+  }
+  const resend = new Resend(resendApiKey);
   
   try {
     const result = await resend.emails.send({
