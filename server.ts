@@ -256,6 +256,34 @@ app.post('/api/lead', async (req, res) => {
   }
 });
 
+// TEST endpoint - sends a test email with hardcoded values
+app.get('/api/test-email', async (_req, res) => {
+  console.log('[Test] Sending test email...');
+  
+  const resend = new Resend('re_hvomVkyY_6wSX4uG9sbwLm8FEMhKXkcAT');
+  
+  try {
+    const result = await resend.emails.send({
+      from: 'Choquer Contact <contactform@choquer.agency>',
+      to: 'bryce@choquer.agency',
+      subject: '🧪 Test Email - Lead Tracking Works!',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h1 style="color: #F97316;">Test Email Successful!</h1>
+          <p>If you're reading this, your Resend integration is working correctly.</p>
+          <p>Sent at: ${new Date().toLocaleString()}</p>
+        </div>
+      `,
+    });
+    
+    console.log('[Test] Email result:', result);
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('[Test] Email error:', error);
+    res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
 // Cron endpoint to check for abandoned leads
 // This runs every 5 minutes via Railway cron job
 app.post('/api/cron/check-leads', async (req, res) => {
