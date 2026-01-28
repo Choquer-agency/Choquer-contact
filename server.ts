@@ -33,6 +33,166 @@ interface FormData {
   trafficReality: string;
   hopingFor: string[];
   anythingElse: string;
+  // Anti-spam fields
+  _honeypot?: string;
+  _step2StartTime?: number;
+  _step2Duration?: number;
+}
+
+type SpamRisk = 'LOW' | 'MEDIUM' | 'HIGH';
+
+// Disposable email domains to flag
+const DISPOSABLE_EMAIL_DOMAINS = [
+  'tempmail.com', 'guerrillamail.com', 'mailinator.com', 'throwaway.email',
+  '10minutemail.com', 'temp-mail.org', 'fakeinbox.com', 'trashmail.com',
+  'getnada.com', 'maildrop.cc', 'sharklasers.com', 'grr.la', 'yopmail.com'
+];
+
+// Check if URL actually resolves
+async function checkUrlValidity(urlString: string): Promise<'valid' | 'invalid' | 'timeout'> {
+  try {
+    const url = new URL(urlString.startsWith('http') ? urlString : `https://${urlString}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(url.origin, {
+      method: 'HEAD',
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok || response.status < 500 ? 'valid' : 'invalid';
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return 'timeout';
+    }
+    return 'invalid';
+  }
+}
+
+// Check if email is from a disposable domain
+function isDisposableEmail(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return domain ? DISPOSABLE_EMAIL_DOMAINS.includes(domain) : false;
+}
+
+// Get AI spam assessment using Claude
+async function getAiSpamAssessment(formData: FormData): Promise<SpamRisk> {
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+  
+  if (!anthropicApiKey) {
+    console.log('[SpamCheck] No Anthropic API key configured, defaulting to MEDIUM');
+    return 'MEDIUM';
+  }
+
+  try {
+    const prompt = `Assess this lead's spam risk. Reply with ONLY one word: LOW, MEDIUM, or HIGH.
+
+Consider these factors:
+- Is the name realistic? (not keyboard spam like "asdfgh")
+- Does the email look legitimate? (not disposable/temporary)
+- Is there coherent, relevant content in their responses?
+- Does the company name match a real business pattern?
+- Does the context provided (if any) make sense for a business inquiry?
+
+Lead data:
+Name: ${formData.fullName}
+Email: ${formData.email}
+Company: ${formData.companyName}
+Website: ${formData.companyUrl}
+Looking for: ${formData.lookingFor.join(', ') || 'Not specified'}
+Additional context: ${formData.anythingElse || 'None provided'}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[SpamCheck] AI API error:', response.status);
+      return 'MEDIUM';
+    }
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text?.trim().toUpperCase();
+    
+    if (text === 'LOW' || text === 'MEDIUM' || text === 'HIGH') {
+      return text as SpamRisk;
+    }
+    
+    console.log('[SpamCheck] Unexpected AI response:', text);
+    return 'MEDIUM';
+  } catch (error) {
+    console.error('[SpamCheck] AI assessment failed:', error);
+    return 'MEDIUM';
+  }
+}
+
+// Calculate overall spam risk
+async function calculateSpamRisk(formData: FormData): Promise<SpamRisk> {
+  let riskPoints = 0;
+  const reasons: string[] = [];
+
+  // Factor 1: URL validity
+  const urlStatus = await checkUrlValidity(formData.companyUrl);
+  if (urlStatus === 'invalid') {
+    riskPoints += 3;
+    reasons.push('invalid URL');
+  } else if (urlStatus === 'timeout') {
+    riskPoints += 1;
+    reasons.push('URL timeout');
+  }
+
+  // Factor 2: Disposable email
+  if (isDisposableEmail(formData.email)) {
+    riskPoints += 3;
+    reasons.push('disposable email');
+  }
+
+  // Factor 3: Step 2 timing (if available)
+  const step2Duration = formData._step2Duration;
+  if (step2Duration !== undefined) {
+    if (step2Duration < 5000) {
+      riskPoints += 2;
+      reasons.push('very fast form completion');
+    } else if (step2Duration < 10000) {
+      riskPoints += 1;
+      reasons.push('fast form completion');
+    }
+  }
+
+  // Factor 4: AI assessment (only if we have concerning signals or want full coverage)
+  const aiRisk = await getAiSpamAssessment(formData);
+  if (aiRisk === 'HIGH') {
+    riskPoints += 3;
+    reasons.push('AI flagged as suspicious');
+  } else if (aiRisk === 'MEDIUM') {
+    riskPoints += 1;
+    reasons.push('AI has minor concerns');
+  }
+
+  // Calculate final risk
+  let finalRisk: SpamRisk;
+  if (riskPoints >= 4) {
+    finalRisk = 'HIGH';
+  } else if (riskPoints >= 2) {
+    finalRisk = 'MEDIUM';
+  } else {
+    finalRisk = 'LOW';
+  }
+
+  console.log(`[SpamCheck] Risk: ${finalRisk} (${riskPoints} points) - Factors: ${reasons.join(', ') || 'none'}`);
+  return finalRisk;
 }
 
 interface LeadPayload {
@@ -56,7 +216,8 @@ const STEP_LABELS = [
 async function sendNotificationEmail(
   formData: FormData,
   currentStep: number,
-  trigger: 'abandoned' | 'completed'
+  trigger: 'abandoned' | 'completed',
+  spamRisk?: SpamRisk | null
 ): Promise<boolean> {
   // Clean up environment variables (remove any hidden characters like tabs or = signs)
   const resendApiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^[^r]+/, '');
@@ -74,9 +235,12 @@ async function sendNotificationEmail(
   const isCompleted = trigger === 'completed';
   const stepLabel = STEP_LABELS[currentStep] || `Step ${currentStep}`;
 
+  // Add spam risk indicator to subject if HIGH
+  const spamIndicator = spamRisk === 'HIGH' ? '🚨 ' : spamRisk === 'MEDIUM' ? '⚡ ' : '';
+  
   const subject = isCompleted
-    ? `✅ New Lead: ${formData.fullName || 'Unknown'} - Form Completed`
-    : `⚠️ Abandoned Lead: ${formData.fullName || 'Unknown'} - Left at ${stepLabel}`;
+    ? `${spamIndicator}✅ New Lead: ${formData.fullName || 'Unknown'} - Form Completed`
+    : `${spamIndicator}⚠️ Abandoned Lead: ${formData.fullName || 'Unknown'} - Left at ${stepLabel}`;
 
   const completionPercentage = Math.round((currentStep / 5) * 100);
 
@@ -96,6 +260,11 @@ async function sendNotificationEmail(
     <p style="margin: 10px 0 0 0; opacity: 0.9;">
       ${isCompleted ? 'A new lead has completed the full form!' : `Lead left at: ${stepLabel} (${completionPercentage}% complete)`}
     </p>
+    ${spamRisk ? `
+    <div style="margin-top: 12px; display: inline-block; padding: 6px 12px; border-radius: 4px; font-size: 14px; font-weight: 600; background: ${spamRisk === 'HIGH' ? '#DC2626' : spamRisk === 'MEDIUM' ? '#F59E0B' : '#10B981'};">
+      Spam Risk: ${spamRisk}
+    </div>
+    ` : ''}
   </div>
 
   <div style="border: 1px solid #e5e7eb; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
@@ -216,6 +385,13 @@ app.post('/api/lead', async (req, res) => {
       return res.status(400).json({ error: 'Session ID required' });
     }
 
+    // HONEYPOT CHECK: If the hidden field has any value, it's a bot
+    if (formData._honeypot) {
+      console.log(`[API] SPAM BLOCKED - Honeypot triggered by session ${sessionId.slice(0, 8)}`);
+      // Return success to not alert the bot, but don't save anything
+      return res.json({ success: true, leadId: 'blocked' });
+    }
+
     // Connect to Neon - clean up any hidden characters from env var
     const cleanDbUrl = (process.env.DATABASE_URL || '').trim().replace(/^[^p]+/, '');
     const sql = neon(cleanDbUrl);
@@ -223,24 +399,37 @@ app.post('/api/lead', async (req, res) => {
     // Determine status
     const status = trigger || 'in_progress';
 
+    // Calculate spam risk (only on final submission to avoid API calls on every keystroke)
+    let spamRisk: SpamRisk | null = null;
+    if (trigger === 'completed' || trigger === 'abandoned') {
+      spamRisk = await calculateSpamRisk(formData);
+    }
+
+    // Clean formData - remove internal anti-spam fields before storing
+    const cleanFormData = { ...formData };
+    delete cleanFormData._honeypot;
+    delete cleanFormData._step2StartTime;
+    delete cleanFormData._step2Duration;
+
     // Upsert lead data
     const result = await sql`
-      INSERT INTO leads (session_id, status, current_step, form_data, updated_at)
-      VALUES (${sessionId}, ${status}, ${currentStep}, ${JSON.stringify(formData)}::jsonb, NOW())
+      INSERT INTO leads (session_id, status, current_step, form_data, spam_risk, updated_at)
+      VALUES (${sessionId}, ${status}, ${currentStep}, ${JSON.stringify(cleanFormData)}::jsonb, ${spamRisk}, NOW())
       ON CONFLICT (session_id) 
       DO UPDATE SET 
         status = ${status},
         current_step = ${currentStep},
-        form_data = ${JSON.stringify(formData)}::jsonb,
+        form_data = ${JSON.stringify(cleanFormData)}::jsonb,
+        spam_risk = COALESCE(${spamRisk}, leads.spam_risk),
         updated_at = NOW()
-      RETURNING id, email_sent
+      RETURNING id, email_sent, spam_risk
     `;
 
     const lead = result[0];
 
     // If this is a final trigger (abandoned/completed) and email hasn't been sent yet
     if (trigger && !lead.email_sent) {
-      const emailSent = await sendNotificationEmail(formData, currentStep, trigger);
+      const emailSent = await sendNotificationEmail(formData, currentStep, trigger, lead.spam_risk as SpamRisk | null);
 
       if (emailSent) {
         // Mark email as sent
@@ -252,7 +441,7 @@ app.post('/api/lead', async (req, res) => {
       }
     }
 
-    res.json({ success: true, leadId: lead.id });
+    res.json({ success: true, leadId: lead.id, spamRisk: lead.spam_risk });
   } catch (error) {
     console.error('Lead API Error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -293,7 +482,8 @@ app.get('/api/test-email', async (_req, res) => {
 
 // Cron endpoint to check for abandoned leads
 // This runs every 5 minutes via Railway cron job
-app.post('/api/cron/check-leads', async (req, res) => {
+// Supports both GET (Railway cron) and POST (manual triggers)
+app.all('/api/cron/check-leads', async (req, res) => {
   // Verify cron secret to prevent unauthorized access
   const cronSecret = process.env.CRON_SECRET;
   const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
@@ -337,13 +527,19 @@ app.post('/api/cron/check-leads', async (req, res) => {
 
       console.log(`[Cron] Processing lead ${lead.session_id.slice(0, 8)}... - Step ${currentStep}`);
 
-      const emailSent = await sendNotificationEmail(formData, currentStep, 'abandoned');
+      // Calculate spam risk if not already set
+      let spamRisk = lead.spam_risk as SpamRisk | null;
+      if (!spamRisk) {
+        spamRisk = await calculateSpamRisk(formData);
+      }
+
+      const emailSent = await sendNotificationEmail(formData, currentStep, 'abandoned', spamRisk);
 
       if (emailSent) {
-        // Mark email as sent and update status
+        // Mark email as sent, update status, and save spam risk
         await sql`
           UPDATE leads 
-          SET email_sent = true, status = 'abandoned'
+          SET email_sent = true, status = 'abandoned', spam_risk = ${spamRisk}
           WHERE id = ${lead.id}
         `;
         emailsSent++;
@@ -402,7 +598,9 @@ async function processPendingEmailLeads() {
 
       console.log(`[EmailProcessor] Processing lead ${lead.session_id.slice(0, 8)}...`);
 
-      const emailSent = await sendNotificationEmail(formData, currentStep, 'abandoned');
+      // Calculate spam risk
+      const spamRisk = await calculateSpamRisk(formData);
+      const emailSent = await sendNotificationEmail(formData, currentStep, 'abandoned', spamRisk);
 
       // Update lead status regardless of email success (to prevent infinite retries)
       await sql`
@@ -410,6 +608,7 @@ async function processPendingEmailLeads() {
         SET 
           email_sent = ${emailSent}, 
           status = 'abandoned',
+          spam_risk = ${spamRisk},
           updated_at = NOW()
         WHERE id = ${lead.id}
       `;

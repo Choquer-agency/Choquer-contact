@@ -14,6 +14,7 @@ async function setupDatabase() {
       current_step INTEGER DEFAULT 0,
       form_data JSONB NOT NULL DEFAULT '{}',
       email_sent BOOLEAN DEFAULT FALSE,
+      spam_risk VARCHAR(10),
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
@@ -26,7 +27,12 @@ async function setupDatabase() {
     CREATE INDEX IF NOT EXISTS idx_leads_session_id ON leads(session_id)
   `;
   
-  console.log('✅ Index created successfully!');
+  // Create an index on spam_risk for filtering
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_leads_spam_risk ON leads(spam_risk)
+  `;
+  
+  console.log('✅ Indexes created successfully!');
 }
 
 setupDatabase()

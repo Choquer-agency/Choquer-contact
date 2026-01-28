@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { FormData } from './types';
 import { LOOKING_FOR_OPTIONS, CURRENT_WEBSITE_OPTIONS, TEAM_SITUATION_OPTIONS, TRAFFIC_REALITY_OPTIONS, HOPING_FOR_OPTIONS } from './constants';
 
@@ -122,18 +122,44 @@ export const Step1: React.FC<StepProps> = ({ formData, updateData, onNext }) => 
       <InputField label="Company URL" value={formData.companyUrl} onChange={(val) => updateData({ companyUrl: val })} required />
       <InputField label="Phone Number" value={formData.phone} onChange={(val) => updateData({ phone: val })} />
       
+      {/* Honeypot field - invisible to humans, bots will fill it */}
+      <input
+        name="company_fax"
+        value={formData._honeypot || ''}
+        onChange={(e) => updateData({ _honeypot: e.target.value })}
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, width: 0 }}
+      />
+      
       <NextButton onClick={onNext} disabled={!isValid} />
     </div>
   );
 };
 
 export const Step2: React.FC<StepProps> = ({ formData, updateData, onNext }) => {
+  const startTimeRef = useRef<number>(Date.now());
+  
+  // Record when Step 2 starts
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    updateData({ _step2StartTime: startTimeRef.current });
+  }, []);
+
   const toggleSelection = (option: string) => {
     const current = formData.lookingFor;
     const newSelection = current.includes(option)
       ? current.filter(item => item !== option)
       : [...current, option];
     updateData({ lookingFor: newSelection });
+  };
+
+  const handleNext = () => {
+    // Calculate duration spent on Step 2
+    const duration = Date.now() - startTimeRef.current;
+    updateData({ _step2Duration: duration });
+    onNext();
   };
 
   return (
@@ -146,7 +172,7 @@ export const Step2: React.FC<StepProps> = ({ formData, updateData, onNext }) => 
           onToggle={() => toggleSelection(opt)} 
         />
       ))}
-      <NextButton onClick={onNext} disabled={formData.lookingFor.length === 0} />
+      <NextButton onClick={handleNext} disabled={formData.lookingFor.length === 0} />
     </div>
   );
 };

@@ -10,7 +10,13 @@ export interface FormData {
     trafficReality: string;
     hopingFor: string[];
     anythingElse: string;
+    // Anti-spam fields (invisible to user)
+    _honeypot?: string;
+    _step2StartTime?: number;
+    _step2Duration?: number;
   }
+  
+  export type SpamRisk = 'LOW' | 'MEDIUM' | 'HIGH';
   
   export type StepId = 0 | 1 | 2 | 3 | 4 | 5; // 5 is the summary/result view
   
@@ -31,3 +37,4 @@ export interface FormData {
     mistake: string;
     nextStep: string;
   }
+  
