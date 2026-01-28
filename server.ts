@@ -58,8 +58,11 @@ async function sendNotificationEmail(
   currentStep: number,
   trigger: 'abandoned' | 'completed'
 ): Promise<boolean> {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const notificationEmail = process.env.LEAD_NOTIFICATION_EMAIL;
+  // Clean up environment variables (remove any hidden characters like tabs or = signs)
+  const resendApiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^[^r]+/, '');
+  const notificationEmail = (process.env.LEAD_NOTIFICATION_EMAIL || '').trim().replace(/^[^a-zA-Z]+/, '');
+
+  console.log(`[Email] Using notification email: ${notificationEmail}`);
 
   if (!resendApiKey || !notificationEmail) {
     console.warn('Email configuration missing - RESEND_API_KEY or LEAD_NOTIFICATION_EMAIL not set');
