@@ -97,16 +97,36 @@ const NextButton: React.FC<NextButtonProps> = ({ onClick, disabled = false }) =>
   <button
     onClick={onClick}
     disabled={disabled}
-    className="group mt-4 relative flex items-center gap-5 bg-brand-orange text-white pl-5 pr-1.5 py-1.5 rounded overflow-hidden transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    className={`group mt-4 relative flex items-center justify-between overflow-clip transition-all duration-200
+      py-[0.375rem] pr-[0.5rem] pl-[1.25rem] gap-[1.25rem] rounded
+      ${disabled 
+        ? 'bg-black/5 text-gray-900 cursor-not-allowed' 
+        : 'bg-brand-orange text-white cursor-pointer'
+      }`}
   >
-    {/* Expanding background on hover */}
-    <div className="absolute right-3 w-0 h-[2.375rem] bg-orange-600 rounded transition-all duration-300 ease-out group-hover:w-[calc(100%-0.75rem)] group-hover:right-[0.375rem]" />
+    {/* Expanding background on hover - only when enabled */}
+    {!disabled && (
+      <div className="absolute right-[0.5rem] w-0 h-[2.375rem] bg-orange-600 rounded transition-all duration-300 ease-out group-hover:w-[calc(100%-0.75rem)] group-hover:right-[0.375rem]" />
+    )}
     
-    <span className="relative z-10 font-medium text-base transition-transform duration-500 group-hover:translate-x-0.5">Next</span>
+    <span className={`relative z-[2] font-medium text-base transition-transform duration-500 ${!disabled ? 'group-hover:translate-x-1' : ''}`}>
+      Next
+    </span>
     
-    {/* Arrow box matching Webflow dimensions */}
-    <div className="relative z-10 flex items-center justify-center w-11 h-[2.375rem] bg-black text-white rounded transition-colors duration-300">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform duration-400 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    {/* Arrow box - 50% opacity black when disabled, orange with white icon when enabled */}
+    <div className={`relative z-[2] flex items-center justify-center w-[2.75rem] h-[2.375rem] rounded transition-all duration-300
+      ${disabled 
+        ? 'bg-black/50 text-white' 
+        : 'bg-black text-white'
+      }`}
+    >
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        className={`h-4 w-4 transition-transform duration-400 ${!disabled ? 'group-hover:translate-x-0.5' : ''}`} 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke="currentColor"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
       </svg>
     </div>
