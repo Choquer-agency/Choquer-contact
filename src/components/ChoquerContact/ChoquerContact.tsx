@@ -107,7 +107,7 @@ const HOPING_FOR_OPTIONS = [
   "A foundation we can build on long-term",
   "Higher conversion rates",
   "Easier internal management",
-  ""I'm not sure — I want guidance""
+  "I'm not sure — I want guidance"
 ];
 
 // API Configuration
