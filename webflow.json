@@ -1,0 +1,25 @@
+{
+  "name": "Choquer Contact Form",
+  "version": "1.0.0",
+  "library": {
+    "components": [
+      "./src/components/ChoquerContact/ChoquerContact.webflow.tsx"
+    ],
+    "name": "Choquer  Contact  Form",
+    "description": "Multi-step contact form with AI-powered lead analysis",
+    "id": "choquer-contact-form"
+  },
+  "devlink": {
+    "rootDir": "./src/components",
+    "components": [
+      "./ChoquerContact/ChoquerContact.webflow.tsx"
+    ]
+  },
+  "telemetry": {
+    "global": {
+      "allowTelemetry": true,
+      "lastPrompted": 1769631924811,
+      "version": "1.11.1"
+    }
+  }
+}

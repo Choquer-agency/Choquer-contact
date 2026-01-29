@@ -52,33 +52,37 @@ const App: React.FC = () => {
       // Save progress when moving to next step
       saveFormData(formData, nextStep);
     } else if (currentStep === 4) {
-      // Moving to summary - generate AI response
+      // Moving to summary - generate AI response first, then submit lead with summary
       setIsLoading(true);
       setCurrentStep(5);
       
-      // Submit lead as completed when reaching summary
-      submitLead('completed');
-      
       // Minimum loading time for UX
       const minLoadingTime = new Promise(resolve => setTimeout(resolve, 2000));
+      
+      let generatedSummary: AiSummary;
       
       try {
         const [result] = await Promise.all([
           generateSummary(formData),
           minLoadingTime
         ]);
+        generatedSummary = result;
         setSummary(result);
       } catch (error) {
         console.error('Error generating summary:', error);
         await minLoadingTime;
-        setSummary({
+        generatedSummary = {
           situationAnalysis: "Most companies in your position are dealing with fragmented digital presence, which usually points to misalignment between business growth and web infrastructure.",
           mistake: "What we often see at this stage is teams getting stuck in the tension between wanting quick results and needing foundational work, even when they know what they want to improve.",
           nextStep: "If that resonates, the next step isn't a tactical fix — it's clarity around an integrated strategy, so everything works together."
-        });
+        };
+        setSummary(generatedSummary);
       } finally {
         setIsLoading(false);
       }
+      
+      // Submit lead as completed with the AI summary included
+      submitLead('completed', generatedSummary);
     }
   };
 

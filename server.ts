@@ -17,6 +17,30 @@ console.log('[Startup] DATABASE_URL length:', dbUrl.length);
 console.log('[Startup] DATABASE_URL first 50 chars:', JSON.stringify(dbUrl.slice(0, 50)));
 console.log('[Startup] DATABASE_URL char codes:', Array.from(dbUrl.slice(0, 10)).map(c => c.charCodeAt(0)));
 
+// CORS Configuration for Webflow
+const ALLOWED_ORIGINS = [
+  'https://choquer.webflow.io',
+  'https://www.choquer.agency',
+  'https://choquer.agency',
+  'http://localhost:1327', // Local development
+  'http://localhost:3000',
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Middleware
 app.use(express.json());
 
@@ -200,7 +224,134 @@ interface LeadPayload {
   formData: FormData;
   currentStep: number;
   trigger?: 'abandoned' | 'completed';
+  aiSummary?: AiSummary;
 }
+
+interface AiSummary {
+  situationAnalysis: string;
+  mistake: string;
+  nextStep: string;
+}
+
+// Generate AI Summary endpoint (moved from frontend for security)
+app.post('/api/generate-summary', async (req, res) => {
+  const formData = req.body as FormData;
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!anthropicApiKey) {
+    console.log('[GenerateSummary] No Anthropic API key configured');
+    return res.json({
+      situationAnalysis: "We've received your information and are processing it.",
+      mistake: "Our AI analysis tool is temporarily unavailable — but don't worry, your submission was captured.",
+      nextStep: "Our team will review your details manually and reach out shortly. Thank you for your patience."
+    } as AiSummary);
+  }
+
+  try {
+    // Detect if user provided substantive free-text input
+    const hasDetailedContext = formData.anythingElse?.trim().length > 50;
+
+    // Add priority instructions when detailed context exists
+    const contextPriorityInstructions = hasDetailedContext ? `
+CRITICAL PRIORITY — USER'S OWN WORDS:
+The user has provided detailed context in their own words below. This is the MOST IMPORTANT input and should heavily influence your response.
+- Directly reference their specific interests, technologies, or solutions they mentioned (e.g., AI, chatbots, automation, specific tools)
+- Validate their thinking — affirm that their ideas are valuable and forward-thinking
+- Position Choquer as experienced and capable of delivering exactly what they've described
+- Your response should feel like you truly heard what they wrote, not a generic template
+
+User's Detailed Context:
+"${formData.anythingElse}"
+
+` : '';
+
+    const prompt = `You are generating a strategic perspective for a prospective client reaching out to Choquer Agency, a senior-level web, SEO, CRO, and AI-forward marketing partner.
+
+Context:
+- The user has intentionally selected the services they believe will help them grow.
+- Assume they are already thinking in the right direction.
+- Your role is to reflect their situation clearly, validate their instincts, and elevate their thinking — not to correct or contradict them.
+${contextPriorityInstructions}
+Prospective Client Data:
+Name: ${formData.fullName}
+Company: ${formData.companyName} (${formData.companyUrl})
+Services Selected: ${formData.lookingFor?.join(", ") || 'Not specified'}
+Current Website Status: ${formData.currentWebsite || 'Not specified'}
+Team Situation: ${formData.teamSituation || 'Not specified'}
+Traffic Reality: ${formData.trafficReality || 'Not specified'}
+Desired Outcomes: ${formData.hopingFor?.join(", ") || 'Not specified'}
+${!hasDetailedContext && formData.anythingElse ? `Additional Context: ${formData.anythingElse}` : ''}
+
+Instructions:
+Generate a concise, high-confidence strategic summary in JSON format with exactly three fields.
+
+Tone & Style Guidelines:
+- Insightful, calm, and experienced
+- Empathetic and validating
+- No blame, no shaming, no "you did this wrong"
+- Speak as a partner who has seen this pattern many times
+- Treat website, SEO, CRO, and systems as interconnected — never isolated
+
+Required Fields:
+
+1. situationAnalysis - Complete this: "Most companies in your position are dealing with [X], which usually points to [Y]."
+2. mistake - Complete this: "What we often see at this stage is teams getting stuck in [common tension or tradeoff], even when they know what they want to improve."
+3. nextStep - Complete this: "If that resonates, the next step isn't [tactical action] — it's clarity around [Choquer principle], so everything works together."
+
+IMPORTANT: Keep each field concise - maximum 180 characters per field.
+
+Respond ONLY with valid JSON in this exact format: {"situationAnalysis": "...", "mistake": "...", "nextStep": "..."}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[GenerateSummary] AI API error:', response.status);
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text;
+
+    if (!text) {
+      throw new Error("No response from AI");
+    }
+
+    // Extract JSON from the response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Could not parse JSON from response");
+
+    const parsed = JSON.parse(jsonMatch[0]) as AiSummary;
+
+    // Truncate if needed
+    const truncate = (str: string, maxLen: number) => str.length > maxLen ? str.substring(0, maxLen - 3) + '...' : str;
+
+    res.json({
+      situationAnalysis: truncate(parsed.situationAnalysis, 200),
+      mistake: truncate(parsed.mistake, 200),
+      nextStep: truncate(parsed.nextStep, 200),
+    } as AiSummary);
+
+  } catch (error) {
+    console.error('[GenerateSummary] Error:', error);
+    res.json({
+      situationAnalysis: "We've received your information and are processing it.",
+      mistake: "Our AI analysis tool is temporarily unavailable — but don't worry, your submission was captured.",
+      nextStep: "Our team will review your details manually and reach out shortly. Thank you for your patience."
+    } as AiSummary);
+  }
+});
 
 // Step labels for email
 const STEP_LABELS = [
@@ -217,7 +368,8 @@ async function sendNotificationEmail(
   formData: FormData,
   currentStep: number,
   trigger: 'abandoned' | 'completed',
-  spamRisk?: SpamRisk | null
+  spamRisk?: SpamRisk | null,
+  aiSummary?: AiSummary | null
 ): Promise<boolean> {
   // Clean up environment variables (remove any hidden characters like tabs or = signs)
   const resendApiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^[^r]+/, '');
@@ -340,6 +492,15 @@ async function sendNotificationEmail(
     <p style="margin: 0; background: #f9fafb; padding: 12px; border-radius: 6px; white-space: pre-wrap;">${formData.anythingElse}</p>
     ` : ''}
 
+    ${aiSummary ? `
+    <h2 style="color: #111; font-size: 18px; margin-top: 24px;">🤖 AI Summary Shown to Lead</h2>
+    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+      <p style="margin: 0 0 12px 0; font-style: italic; color: #92400e;"><strong>Situation:</strong> ${aiSummary.situationAnalysis}</p>
+      <p style="margin: 0 0 12px 0; font-style: italic; color: #92400e;"><strong>Common Challenge:</strong> ${aiSummary.mistake}</p>
+      <p style="margin: 0; font-style: italic; color: #92400e;"><strong>Next Step:</strong> ${aiSummary.nextStep}</p>
+    </div>
+    ` : ''}
+
     <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
       <p style="margin: 0;">Lead captured at ${new Date().toLocaleString('en-US', {
         timeZone: 'America/New_York',
@@ -376,9 +537,9 @@ async function sendNotificationEmail(
 app.post('/api/lead', async (req, res) => {
   try {
     const payload: LeadPayload = req.body;
-    const { sessionId, formData, currentStep, trigger } = payload;
+    const { sessionId, formData, currentStep, trigger, aiSummary } = payload;
 
-    console.log(`[API] Lead received - Session: ${sessionId?.slice(0, 8)}..., Step: ${currentStep}, Trigger: ${trigger || 'none'}`);
+    console.log(`[API] Lead received - Session: ${sessionId?.slice(0, 8)}..., Step: ${currentStep}, Trigger: ${trigger || 'none'}${aiSummary ? ', with AI summary' : ''}`);
 
     if (!sessionId) {
       console.log('[API] Error: No session ID');
@@ -429,7 +590,7 @@ app.post('/api/lead', async (req, res) => {
 
     // If this is a final trigger (abandoned/completed) and email hasn't been sent yet
     if (trigger && !lead.email_sent) {
-      const emailSent = await sendNotificationEmail(formData, currentStep, trigger, lead.spam_risk as SpamRisk | null);
+      const emailSent = await sendNotificationEmail(formData, currentStep, trigger, lead.spam_risk as SpamRisk | null, aiSummary);
 
       if (emailSent) {
         // Mark email as sent

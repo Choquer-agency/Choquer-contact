@@ -8,10 +8,13 @@
     "dev:client": "vite --port 1327",
     "dev:server": "tsx watch server.ts",
     "build": "tsc && vite build",
+    "build:library": "vite build --mode library",
     "start": "node --import tsx server.ts",
     "preview": "vite preview --port 1327",
     "db:setup": "tsx scripts/setup-db.ts",
-    "cron:check-leads": "tsx cron/check-leads.ts"
+    "cron:check-leads": "tsx cron/check-leads.ts",
+    "webflow:auth": "webflow auth",
+    "webflow:share": "webflow library share"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -24,10 +27,16 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "@webflow/react": "^1.2.0",
+    "@webflow/webflow-cli": "^1.11.1",
+    "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.3.0",
     "vite": "^5.0.0"
   }

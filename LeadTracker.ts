@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { FormData, StepId } from './types';
+import { FormData, StepId, AiSummary } from './types';
 
 const STORAGE_KEY = 'choquer_lead_session';
 const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes
@@ -62,7 +62,8 @@ function saveSession(session: LeadSession): void {
 // Sync session to backend
 async function syncToBackend(
   session: LeadSession,
-  trigger?: 'abandoned' | 'completed'
+  trigger?: 'abandoned' | 'completed',
+  aiSummary?: AiSummary
 ): Promise<boolean> {
   try {
     // Use relative URL - works in both dev (via Vite proxy) and production
@@ -76,6 +77,7 @@ async function syncToBackend(
         formData: session.formData,
         currentStep: session.currentStep,
         trigger,
+        aiSummary,
       }),
     });
 
@@ -98,7 +100,7 @@ interface UseLeadTrackerOptions {
 
 interface UseLeadTrackerReturn {
   saveFormData: (data: FormData, step: StepId) => void;
-  submitLead: (trigger: 'abandoned' | 'completed') => Promise<void>;
+  submitLead: (trigger: 'abandoned' | 'completed', aiSummary?: AiSummary) => Promise<void>;
   resetSession: () => void;
   sessionId: string;
 }
@@ -228,7 +230,7 @@ export function useLeadTracker({
     scheduleDebouncedSync();
   }, [resetInactivityTimer, scheduleDebouncedSync]);
 
-  const submitLead = useCallback(async (trigger: 'abandoned' | 'completed') => {
+  const submitLead = useCallback(async (trigger: 'abandoned' | 'completed', aiSummary?: AiSummary) => {
     if (!sessionRef.current || isSubmittedRef.current) return;
 
     // Clear timers
@@ -243,8 +245,8 @@ export function useLeadTracker({
     sessionRef.current.emailSent = true;
     saveSession(sessionRef.current);
 
-    console.log(`[LeadTracker] Submitting lead as: ${trigger}`);
-    await syncToBackend(sessionRef.current, trigger);
+    console.log(`[LeadTracker] Submitting lead as: ${trigger}${aiSummary ? ' with AI summary' : ''}`);
+    await syncToBackend(sessionRef.current, trigger, aiSummary);
   }, []);
 
   const resetSession = useCallback(() => {
