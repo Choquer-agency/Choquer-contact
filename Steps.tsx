@@ -27,7 +27,7 @@ const InputField: React.FC<InputFieldProps> = ({ label, value, onChange, require
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={`${label}${required ? '*' : ''}`}
-      className="w-full bg-white px-5 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring-0 outline-none text-gray-800 placeholder-gray-400 transition-all shadow-sm hover:shadow-md text-base"
+      className="w-full bg-white px-5 py-3 rounded border border-gray-200 focus:border-gray-300 focus:ring-0 outline-none text-gray-800 placeholder-gray-400 transition-all shadow-sm hover:shadow-md text-base"
     />
   </div>
 );
@@ -47,7 +47,7 @@ const SelectDropdown: React.FC<SelectDropdownProps> = ({ label, value, onChange,
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full appearance-none bg-white px-5 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring-0 outline-none text-gray-800 transition-all shadow-sm hover:shadow-md cursor-pointer text-base ${openUpward ? 'dropdown-upward' : ''}`}
+        className={`w-full appearance-none bg-white px-5 py-3 rounded border border-gray-200 focus:border-gray-300 focus:ring-0 outline-none text-gray-800 transition-all shadow-sm hover:shadow-md cursor-pointer text-base ${openUpward ? 'dropdown-upward' : ''}`}
         style={openUpward ? { position: 'relative' } : undefined}
       >
         <option value="" disabled>Select One</option>
@@ -71,7 +71,7 @@ interface CheckboxButtonProps {
 const CheckboxButton: React.FC<CheckboxButtonProps> = ({ label, isSelected, onToggle }) => (
   <button
     onClick={onToggle}
-    className={`w-full text-left px-5 py-3 rounded-xl border mb-2 flex items-center justify-between transition-all duration-200 group
+    className={`w-full text-left px-5 py-3 rounded border mb-2 flex items-center justify-between transition-all duration-200 group
       ${isSelected 
         ? 'bg-white border-brand-orange shadow-md' 
         : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
@@ -97,13 +97,18 @@ const NextButton: React.FC<NextButtonProps> = ({ onClick, disabled = false }) =>
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`mt-4 flex items-center space-x-3 bg-brand-orange text-white px-7 py-3 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+    className="group mt-4 relative flex items-center gap-5 bg-brand-orange text-white pl-5 pr-1.5 py-1.5 rounded overflow-hidden transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    <span className="font-medium text-base">Next</span>
-    <div className="bg-black text-white p-1.5 rounded">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-        </svg>
+    {/* Expanding background on hover */}
+    <div className="absolute right-3 w-0 h-[2.375rem] bg-orange-600 rounded transition-all duration-300 ease-out group-hover:w-[calc(100%-0.75rem)] group-hover:right-[0.375rem]" />
+    
+    <span className="relative z-10 font-medium text-base transition-transform duration-500 group-hover:translate-x-0.5">Next</span>
+    
+    {/* Arrow box matching Webflow dimensions */}
+    <div className="relative z-10 flex items-center justify-center w-11 h-[2.375rem] bg-black text-white rounded transition-colors duration-300">
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform duration-400 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+      </svg>
     </div>
   </button>
 );
@@ -234,14 +239,13 @@ export const Step5: React.FC<StepProps> = ({ formData, updateData, onNext }) => 
   return (
     <div className="animate-fade-in-up h-full flex flex-col">
       <textarea
-        className="w-full bg-white px-5 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring-0 outline-none text-gray-800 placeholder-gray-400 transition-all shadow-sm hover:shadow-md text-base min-h-[140px] resize-none"
+        className="w-full bg-white px-5 py-3 rounded border border-gray-200 focus:border-gray-300 focus:ring-0 outline-none text-gray-800 placeholder-gray-400 transition-all shadow-sm hover:shadow-md text-base min-h-[140px] resize-none"
         placeholder="Anything about your business, goals, or concerns you think would be helpful context?"
         value={formData.anythingElse}
         onChange={(e) => updateData({ anythingElse: e.target.value })}
       />
-      <div>
-        <NextButton onClick={onNext} />
-      </div>
+      <p className="mt-4 text-gray-500 text-sm">Ready to see your personalized analysis? Click next to begin.</p>
+      <NextButton onClick={onNext} />
     </div>
   );
 };

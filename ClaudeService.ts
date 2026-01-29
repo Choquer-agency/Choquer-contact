@@ -109,7 +109,7 @@ Guidance:
 Output Format:
 Return valid JSON only, with no extra commentary.
 
-IMPORTANT: Keep each field concise - maximum 180 characters per field. This ensures the summary fits on screen without scrolling.
+IMPORTANT: Each field should be detailed and strategic - aim for 250-350 characters per field. Provide substantive insights that demonstrate deep understanding of their situation.
 
 Respond ONLY with valid JSON in this exact format: {"situationAnalysis": "...", "mistake": "...", "nextStep": "..."}`;
 
@@ -123,7 +123,7 @@ Respond ONLY with valid JSON in this exact format: {"situationAnalysis": "...", 
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [
           {
             role: 'user',
@@ -158,13 +158,13 @@ Respond ONLY with valid JSON in this exact format: {"situationAnalysis": "...", 
     
     const parsed = JSON.parse(jsonMatch[0]) as AiSummary;
     
-    // Truncate if needed to prevent scrolling
+    // Truncate if needed to prevent excessive length
     const truncate = (str: string, maxLen: number) => str.length > maxLen ? str.substring(0, maxLen - 3) + '...' : str;
     
     return {
-      situationAnalysis: truncate(parsed.situationAnalysis, 200),
-      mistake: truncate(parsed.mistake, 200),
-      nextStep: truncate(parsed.nextStep, 200),
+      situationAnalysis: truncate(parsed.situationAnalysis, 350),
+      mistake: truncate(parsed.mistake, 350),
+      nextStep: truncate(parsed.nextStep, 350),
     };
   } catch (error) {
     console.error("[ClaudeService] Error:", error);

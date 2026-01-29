@@ -109,9 +109,9 @@ const App: React.FC = () => {
         return <Step5 {...stepProps} />;
       case 5:
         return (
-          <div className="animate-fade-in-up h-full flex flex-col justify-center">
+          <div className="animate-fade-in-up h-full flex-1 flex flex-col justify-center min-h-[400px]">
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-full">
+              <div className="flex flex-col items-center justify-center flex-1">
                 <div className="w-16 h-16 border-4 border-brand-orange border-t-transparent rounded-full animate-spin mb-6"></div>
                 <p className="text-xl md:text-2xl font-medium text-gray-900 mb-2">Analyzing your plan...</p>
                 <p className="text-gray-500">This will only take a moment</p>
@@ -139,11 +139,15 @@ const App: React.FC = () => {
                     href="https://cal.com/brycechoquer/discovery"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-3 bg-brand-orange text-white px-6 py-3 rounded hover:bg-orange-600 transition-colors"
+                    className="group relative inline-flex items-center gap-5 bg-brand-orange text-white pl-5 pr-1.5 py-1.5 rounded overflow-hidden transition-colors"
                   >
-                    <span className="font-medium">Schedule A Call w/ Bryce</span>
-                    <div className="bg-black text-white p-1 rounded">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {/* Expanding background on hover */}
+                    <div className="absolute right-3 w-0 h-[2.375rem] bg-orange-600 rounded transition-all duration-300 ease-out group-hover:w-[calc(100%-0.75rem)] group-hover:right-[0.375rem]" />
+                    
+                    <span className="relative z-10 font-medium transition-transform duration-500 group-hover:translate-x-0.5">Schedule A Call w/ Bryce</span>
+                    
+                    <div className="relative z-10 flex items-center justify-center w-11 h-[2.375rem] bg-black text-white rounded transition-colors duration-300">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 transition-transform duration-400 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>
                     </div>
@@ -191,7 +195,7 @@ const App: React.FC = () => {
                 {/* Step Number and Title */}
                 <div className="mb-4">
                   <div className="flex items-baseline space-x-3 md:space-x-4">
-                    <span className="font-pixel text-brand-orange text-[32px] md:text-[52px] lg:text-[58px]">
+                    <span className="font-pixel text-brand-orange text-[30px] md:text-[50px] lg:text-[56px]">
                       {currentStepConfig.number}
                     </span>
                     <h2 className="text-xl md:text-3xl lg:text-4xl font-medium text-gray-900">

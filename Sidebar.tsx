@@ -681,6 +681,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentStep }) => {
             controls
             poster="https://picsum.photos/id/4/800/600"
             playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
         >
             <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" type="video/mp4" />
             Your browser does not support the video tag.
